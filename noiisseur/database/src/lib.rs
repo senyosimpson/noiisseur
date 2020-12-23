@@ -35,3 +35,9 @@ pub fn insert_track<'a>(conn: &SqliteConnection, name: &'a str, url: &'a str) {
         .execute(conn)
         .expect("Error inserting track into database");
 }
+
+pub fn delete_track(conn: &SqliteConnection, id: i32) {
+    diesel::delete(tracks::table.find(id))
+        .execute(conn)
+        .expect("Error deleting posts");
+}
