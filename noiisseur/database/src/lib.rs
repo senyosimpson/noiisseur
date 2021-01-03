@@ -12,7 +12,7 @@ use diesel::{
 };
 use dotenv::dotenv;
 
-use models::NewTrack;
+use models::{Track, NewTrack};
 use schema::tracks;
 
 
@@ -40,4 +40,9 @@ pub fn delete_track(conn: &SqliteConnection, id: i32) {
     diesel::delete(tracks::table.find(id))
         .execute(conn)
         .expect("Error deleting posts");
+}
+
+pub fn get_all_tracks(conn: &SqliteConnection) -> Vec<Track> {
+    tracks::table
+        .load::<Track>(conn).unwrap()
 }

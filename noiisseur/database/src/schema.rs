@@ -1,6 +1,6 @@
 table! {
     tracks (id) {
-        id -> Nullable<Integer>,
+        id -> Integer,
         name -> Text,
         url -> Text,
     }

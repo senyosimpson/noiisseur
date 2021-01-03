@@ -2,7 +2,7 @@ use diesel::{Insertable, Queryable};
 use crate::schema::tracks;
 
 
-#[derive(Queryable)]
+#[derive(Queryable, PartialEq)]
 pub struct Track {
     pub id: i32,
     pub name: String,
