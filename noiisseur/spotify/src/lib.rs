@@ -7,6 +7,11 @@ use base64;
 use webbrowser;
 use ini::Ini;
 use rocket::*;
+use sha2::Sha256;
+use hmac::{Hmac, NewMac, Mac};
+use csrf::{CsrfProtection, HmacCsrfProtection};
+use lazy_static::lazy_static;
+use ring::rand::{self, SecureRandom};
 use reqwest::{
     blocking::Client,
     header
@@ -21,9 +26,28 @@ const SPOTIFY_TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 const RESPONSE_TYPE: &str = "code";
 const SCOPE: &str = "playlist-read-private";
 const REDIRECT_URI: &str = "http://localhost:8000/auth"; 
-const STATE: &str = ""; // this should be randomly generated
 const GRANT_TYPE: &str = "authorization_code";
+lazy_static! {
+    static ref STATE: String = {
+        let mut bytes = [0; 32];
+        let rng = rand::SystemRandom::new();
+        rng.fill(&mut bytes).unwrap();
 
+        let hmac_key = Hmac::<Sha256>::new_varkey(&bytes)
+            .unwrap()
+            .finalize()
+            .into_bytes();
+        
+        let hmac = HmacCsrfProtection::from_key(hmac_key.into());
+        let mut bytes = [0; 64];
+        rng.fill(&mut bytes).unwrap();
+        let token = hmac
+            .generate_token(&bytes)
+            .unwrap()
+            .b64_url_string();
+        token
+    };
+}
 
 // IDs of the relevant Spotify playlists
 pub const COFFEE_IN_THE_MORNING: &str = "2c5gRvQIaoMKouEo6OiTuu";
@@ -121,6 +145,7 @@ pub fn get_all_tracks(playlist_id: &str) -> Vec<Track> {
 
 pub fn do_auth() {
     let client_id = env::var("SPOTIFY_CLIENT_ID").unwrap();
+
     let url = format!("{auth_url}?client_id={client_id}&response_type={response_type}\
                       &redirect_uri={redirect_uri}&scope={scope}&state={state}\
                       &show_dialog={show_dialog}",
@@ -129,7 +154,7 @@ pub fn do_auth() {
                       response_type=RESPONSE_TYPE,
                       redirect_uri=REDIRECT_URI,
                       scope=SCOPE,
-                      state=STATE,
+                      state=*STATE, // deref to get value
                       show_dialog=false);
     webbrowser::open(&url).unwrap();
     rocket::ignite().mount("/", routes![auth]).launch();
@@ -138,7 +163,7 @@ pub fn do_auth() {
 
 #[get("/auth?<code>&<state>")]
 fn auth(code: String, state: String) {
-    if state == STATE {
+    if state == *STATE {
         let client_id = env::var("SPOTIFY_CLIENT_ID").unwrap();
         let client_secret = env::var("SPOTIFY_CLIENT_SECRET").unwrap();
 
