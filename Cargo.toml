@@ -2,5 +2,6 @@
 
 members = [
     "app",
-    "noiisseur/database"
+    "noiisseur/database",
+    "noiisseur/spotify",
 ]
