@@ -16,6 +16,7 @@ use database::{
 use spotify::{
     self,
     do_auth,
+    refresh_access_token,
     COFFEE_IN_THE_MORNING,
     SENT_TO_YOU_WITH_LOVE,
     BANG_YOUR_LINE,
@@ -57,9 +58,11 @@ fn main() {
         let playlist_ids = [
             COFFEE_IN_THE_MORNING, SENT_TO_YOU_WITH_LOVE,
             BANG_YOUR_LINE, SZN21, SZN20, SZN19, SZN18];
+    
+        let access_token = refresh_access_token();
 
         for id in playlist_ids.iter() { 
-            let tracks = spotify::get_all_tracks(id);
+            let tracks = spotify::get_all_tracks(id, &access_token);
             // TODO: Make this an upsert
             for track in tracks {
                 insert_track(&conn, &track.name, &track.url);

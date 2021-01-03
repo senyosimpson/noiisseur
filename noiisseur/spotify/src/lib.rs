@@ -27,8 +27,13 @@ const SPOTIFY_TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 const RESPONSE_TYPE: &str = "code";
 const SCOPE: &str = "playlist-read-private";
 const REDIRECT_URI: &str = "http://localhost:8000/auth"; 
-const GRANT_TYPE: &str = "authorization_code";
 lazy_static! {
+    static ref SPOTIFY_CLIENT_ID: String = env::var("SPOTIFY_CLIENT_ID")
+        .expect("Missing env variable: SPOTIFY_CLIENT_ID");
+
+    static ref SPOTIFY_CLIENT_SECRET: String = env::var("SPOTIFY_CLIENT_SECRET")
+        .expect("Missing env variable: SPOTIFY_CLIENT_SECRET");
+
     static ref STATE: String = {
         let mut bytes = [0; 32];
         let rng = rand::SystemRandom::new();
@@ -73,9 +78,48 @@ fn get_credentials_file_path() -> PathBuf {
     save_path
 }
 
-// fn get_access_token(refresh_token: &str) {
 
-// }
+pub fn refresh_access_token() -> String {
+    let credentials_fp = get_credentials_file_path();
+    let mut credentials = Ini::load_from_file(credentials_fp.clone()).unwrap();
+    let refresh_token = credentials
+        .get_from(Some("default"), "refresh_token")
+        .unwrap();
+
+    let client = Client::new();
+    let body = form_urlencoded::Serializer::new(String::new())
+        .append_pair("grant_type", "refresh_token")
+        .append_pair("refresh_token", refresh_token)
+        .finish();
+
+    let encode = format!("{client_id}:{client_secret}",
+        client_id=*SPOTIFY_CLIENT_ID,
+        client_secret=*SPOTIFY_CLIENT_SECRET);
+    let encode = base64::encode_config(encode, base64::STANDARD);
+    let auth = format!("Basic {}", encode);
+
+    let response = client.post(SPOTIFY_TOKEN_URL)
+        .header(header::CONTENT_LENGTH, body.len())
+        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .header(header::AUTHORIZATION, auth)
+        .body(body)
+        .send()
+        .unwrap()
+        .text()
+        .unwrap();
+    
+    let v: Value = serde_json::from_str(&response).unwrap();
+    let access_token = v["access_token"]
+        .as_str()
+        .unwrap();
+
+    credentials.with_section(Some("default"))
+        .set("access_token", access_token);
+    credentials.write_to_file(credentials_fp).unwrap();
+
+    access_token.to_string()
+}
+
 
 fn make_request(client: &Client, url: &str, access_token: &str) -> Value {
     let response = client
@@ -116,13 +160,7 @@ fn get_tracks(response: &Value) -> Vec<Track> {
     tracks
 }
 
-pub fn get_all_tracks(playlist_id: &str) -> Vec<Track> {
-    // TODO: Get a new access token every invocation
-    let credentials = Ini::load_from_file(get_credentials_file_path()).unwrap();
-    let access_token = credentials
-        .get_from(Some("default"), "access_token")
-        .unwrap();
-
+pub fn get_all_tracks(playlist_id: &str, access_token: &str) -> Vec<Track> {
     let mut tracks_url = format!("https://api.spotify.com/v1/playlists/{playlist_id}/\
                               tracks?fields=next,items(track(name,external_urls))",
                               playlist_id=playlist_id);
@@ -132,7 +170,7 @@ pub fn get_all_tracks(playlist_id: &str) -> Vec<Track> {
 
     // Paginate
     loop {
-        let response = make_request(&client, &tracks_url, access_token);
+        let response = make_request(&client, &tracks_url, &access_token);
         let mut t = get_tracks(&response);
         tracks.append(&mut t);
 
@@ -174,7 +212,7 @@ fn auth(code: String, state: String) {
         let auth = format!("Basic {}", encode);
 
         let body = form_urlencoded::Serializer::new(String::new())
-            .append_pair("grant_type", GRANT_TYPE)
+            .append_pair("grant_type", "authorization_code")
             .append_pair("code", code.trim())
             .append_pair("redirect_uri", REDIRECT_URI)
             .finish();
