@@ -7,6 +7,7 @@ use base64;
 use webbrowser;
 use ini::Ini;
 use rocket::*;
+use form_urlencoded;
 use sha2::Sha256;
 use hmac::{Hmac, NewMac, Mac};
 use csrf::{CsrfProtection, HmacCsrfProtection};
@@ -145,17 +146,18 @@ pub fn get_all_tracks(playlist_id: &str) -> Vec<Track> {
 
 pub fn do_auth() {
     let client_id = env::var("SPOTIFY_CLIENT_ID").unwrap();
-
-    let url = format!("{auth_url}?client_id={client_id}&response_type={response_type}\
-                      &redirect_uri={redirect_uri}&scope={scope}&state={state}\
-                      &show_dialog={show_dialog}",
+    let params = form_urlencoded::Serializer::new(String::new())
+        .append_pair("client_id", &client_id)
+        .append_pair("response_type", RESPONSE_TYPE)
+        .append_pair("redirect_uri", REDIRECT_URI)
+        .append_pair("scope", SCOPE)
+        .append_pair("state", &STATE)
+        .append_pair("show_dialog", "false")
+        .finish();
+    let url = format!("{auth_url}?{params}",
                       auth_url=SPOTIFY_AUTH_URL,
-                      client_id=client_id,
-                      response_type=RESPONSE_TYPE,
-                      redirect_uri=REDIRECT_URI,
-                      scope=SCOPE,
-                      state=*STATE, // deref to get value
-                      show_dialog=false);
+                      params=params);
+
     webbrowser::open(&url).unwrap();
     rocket::ignite().mount("/", routes![auth]).launch();
 }
@@ -171,11 +173,11 @@ fn auth(code: String, state: String) {
         let encode = base64::encode_config(encode, base64::STANDARD);
         let auth = format!("Basic {}", encode);
 
-        let body = format!("grant_type={grant_type}&code={code}&redirect_uri={redirect_uri}",
-            grant_type=GRANT_TYPE,
-            code=code.trim(),
-            redirect_uri=REDIRECT_URI
-        );
+        let body = form_urlencoded::Serializer::new(String::new())
+            .append_pair("grant_type", GRANT_TYPE)
+            .append_pair("code", code.trim())
+            .append_pair("redirect_uri", REDIRECT_URI)
+            .finish();
 
         let client = Client::new();
         let response = client.post(SPOTIFY_TOKEN_URL)
