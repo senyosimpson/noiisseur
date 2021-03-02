@@ -68,18 +68,28 @@ struct ExternalUrl {
     #[serde(rename = "spotify")]
     url: String,
 }
+
 #[derive(Deserialize)]
-pub struct SpotifyTrack {
+pub struct SpotifyTrackInner {
     pub name: String,
     #[serde(rename = "external_urls")]
     url: ExternalUrl,
 }
+#[derive(Deserialize)]
+pub struct SpotifyTrack {
+    #[serde(rename = "track")]
+    pub track: SpotifyTrackInner
+}
 
 impl SpotifyTrack {
+    pub fn name(&self) -> String {
+        self.track.name.clone()
+    }
+
     pub fn url(&self) -> String {
         // Need to figure out how to restructure my coe
         // to remove this
-        self.url.url.clone()
+        self.track.url.url.clone()
     }
 }
 

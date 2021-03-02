@@ -42,7 +42,7 @@ pub fn delete_track(conn: &SqliteConnection, id: i32) {
         .expect("Error deleting posts");
 }
 
-pub fn get_all_tracks(conn: &SqliteConnection) -> Vec<Track> {
+pub fn get_tracks(conn: &SqliteConnection) -> Vec<Track> {
     tracks::table
         .load::<Track>(conn).unwrap()
 }

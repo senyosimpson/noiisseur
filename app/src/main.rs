@@ -1,5 +1,6 @@
 use oauth;
 use log;
+use dotenv::dotenv;
 use structopt::StructOpt;
 use std::{env, collections::HashMap};
 
@@ -46,6 +47,7 @@ struct Opt {
 
 fn main() {
     env_logger::init();
+    dotenv().ok();
 
     let opt = Opt::from_args();
     if opt.do_auth {
@@ -65,7 +67,7 @@ fn main() {
             let tracks = spotify::get_tracks(id, &access_token);
             // TODO: Make this an upsert
             for track in tracks {
-                insert_track(&conn, &track.name, &track.url());
+                insert_track(&conn, &track.name(), &track.url());
             }
         }
     }
@@ -87,7 +89,7 @@ fn main() {
         twitter_access_token_secret);
 
     let conn = establish_connection();
-    let tracks = database::get_all_tracks(&conn);
+    let tracks = database::get_tracks(&conn);
     let track = tracks.get(0).unwrap(); // Get rid of this unwrap
 
     let client = Client::new();
