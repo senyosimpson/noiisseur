@@ -62,10 +62,10 @@ fn main() {
         let access_token = refresh_access_token();
 
         for id in playlist_ids.iter() { 
-            let tracks = spotify::get_all_tracks(id, &access_token);
+            let tracks = spotify::get_tracks(id, &access_token);
             // TODO: Make this an upsert
             for track in tracks {
-                insert_track(&conn, &track.name, &track.url);
+                insert_track(&conn, &track.name, &track.url());
             }
         }
     }
