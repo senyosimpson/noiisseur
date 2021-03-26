@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use base64;
 use csrf::{CsrfProtection, HmacCsrfProtection};
 use dirs::home_dir;
+use exitcode;
 use form_urlencoded;
 use hmac::{Hmac, Mac, NewMac};
 use ini::Ini;
@@ -196,7 +197,7 @@ pub fn get_tracks(playlist_id: &str, access_token: &str) -> Vec<SpotifyTrack> {
     tracks
 }
 
-pub fn do_auth() {
+pub fn authenticate() {
     let client_id = env::var("SPOTIFY_CLIENT_ID").unwrap();
     let url = {
         let params = form_urlencoded::Serializer::new(String::new())
@@ -207,6 +208,7 @@ pub fn do_auth() {
             .append_pair("state", &STATE)
             .append_pair("show_dialog", "false")
             .finish();
+            
         let url = format!(
             "{auth_url}?{params}",
             auth_url = SPOTIFY_AUTH_URL,
@@ -216,11 +218,11 @@ pub fn do_auth() {
     };
 
     webbrowser::open(&url).unwrap();
-    rocket::ignite().mount("/", routes![auth]).launch();
+    rocket::ignite().mount("/", routes![_authenticate]).launch();
 }
 
 #[get("/auth?<code>&<state>")]
-fn auth(code: String, state: String) {
+fn _authenticate(code: String, state: String) {
     if state == *STATE {
         let client_id = env::var("SPOTIFY_CLIENT_ID").unwrap();
         let client_secret = env::var("SPOTIFY_CLIENT_SECRET").unwrap();
@@ -258,5 +260,9 @@ fn auth(code: String, state: String) {
             .set("access_token", access_auth.access_token)
             .set("refresh_token", access_auth.refresh_token);
         conf.write_to_file(CREDENTIALS_FILE.deref()).unwrap();
+
+        println!("Successfully authenticated!");
     }
+
+    std::process::exit(exitcode::OK)
 }

@@ -1,28 +1,14 @@
-use oauth;
-use log;
 use dotenv::dotenv;
+use oauth;
+use std::{collections::HashMap, env};
 use structopt::StructOpt;
-use std::{env, collections::HashMap};
 
-use reqwest::{
-    blocking::Client,
-    header
-};
+use reqwest::{blocking::Client, header};
 
-use database::{
-    self,
-    establish_connection,
-    insert_track,
-};
+use database::{self, establish_connection, insert_track};
 use spotify::{
-    self,
-    do_auth,
-    refresh_access_token,
-    COFFEE_IN_THE_MORNING,
-    SENT_TO_YOU_WITH_LOVE,
-    BANG_YOUR_LINE,
-    SZN21, SZN20,
-    SZN19, SZN18,
+    self, authenticate, refresh_access_token, BANG_YOUR_LINE, COFFEE_IN_THE_MORNING,
+    SENT_TO_YOU_WITH_LOVE, SZN18, SZN19, SZN20, SZN21,
 };
 
 const POST_TWEET_URL: &str = "https://api.twitter.com/1.1/statuses/update.json";
@@ -34,79 +20,89 @@ struct Tweet {
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Noiisseur", about = "Options for running Noiisseur.")]
-struct Opt {
-    /// Do authentication
-    #[structopt(short, long)]
-    do_auth: bool,
-
-    /// Update playlist tracks 
-    #[structopt(short, long)]
-    update_tracks: bool
+enum Command {
+    /// Authenticate application
+    Auth,
+    /// All commands related to records
+    Records(RecordCmd),
 }
 
+#[derive(Debug, StructOpt)]
+enum RecordCmd {
+    Post,
+    Update,
+}
 
 fn main() {
-    env_logger::init();
     dotenv().ok();
 
-    let opt = Opt::from_args();
-    if opt.do_auth {
-        do_auth();
-    }
+    match Command::from_args() {
+        Command::Auth => authenticate(),
+        Command::Records(record_cmd) => match record_cmd {
+            RecordCmd::Post => {
+                let twitter_consumer_key = env::var("TWITTER_CONSUMER_KEY")
+                    .expect("Missing environment variable: TWITTER_CONSUMER_KEY");
+                let twitter_consumer_secret = env::var("TWITTER_CONSUMER_SECRET")
+                    .expect("Missing environment variable: TWITTER_CONSUMER_SECRET");
+                let twitter_access_token = env::var("TWITTER_ACCESS_TOKEN")
+                    .expect("Missing environment variable: TWITTER_ACCESS_TOKEN");
+                let twitter_access_token_secret = env::var("TWITTER_ACCESS_TOKEN_SECRET")
+                    .expect("Missing environment variable: TWITTER_ACCESS_TOKEN_SECRET");
 
-    if opt.update_tracks {
-        let conn = establish_connection();
+                let token = oauth::Token::from_parts(
+                    twitter_consumer_key,
+                    twitter_consumer_secret,
+                    twitter_access_token,
+                    twitter_access_token_secret,
+                );
 
-        let playlist_ids = [
-            COFFEE_IN_THE_MORNING, SENT_TO_YOU_WITH_LOVE,
-            BANG_YOUR_LINE, SZN21, SZN20, SZN19, SZN18];
-    
-        let access_token = refresh_access_token();
+                let conn = establish_connection();
+                // let ref ?
+                let tracks = database::get_tracks(&conn);
+                let track = tracks.get(0).unwrap(); // Get rid of this unwrap
 
-        for id in playlist_ids.iter() { 
-            let tracks = spotify::get_tracks(id, &access_token);
-            // TODO: Make this an upsert
-            for track in tracks {
-                insert_track(&conn, &track.name(), &track.url());
+                let client = Client::new();
+                let request = Tweet {
+                    status: track.url.clone(),
+                };
+                let auth_header = oauth::post(POST_TWEET_URL, &request, &token, oauth::HmacSha1);
+
+                let mut params = HashMap::new();
+                params.insert("status", track.url.clone());
+                let response = client
+                    .post(POST_TWEET_URL)
+                    .header(header::AUTHORIZATION, auth_header)
+                    .form(&params)
+                    .send()
+                    .unwrap();
+
+                if response.status().is_success() {
+                    println!("Successfully tweeted song: {}", track.name);
+                } else {
+                    println!("Failed to tweet song: {}", track.name);
+                }
             }
-        }
-    }
+            RecordCmd::Update => {
+                let access_token = refresh_access_token();
+                let conn = establish_connection();
+                let playlist_ids = [
+                    COFFEE_IN_THE_MORNING,
+                    SENT_TO_YOU_WITH_LOVE,
+                    BANG_YOUR_LINE,
+                    SZN21,
+                    SZN20,
+                    SZN19,
+                    SZN18,
+                ];
 
-    // Get all the keys I need
-    let twitter_consumer_key = env::var("TWITTER_CONSUMER_KEY")
-        .expect("Missing environment variable: TWITTER_CONSUMER_KEY");
-    let twitter_consumer_secret = env::var("TWITTER_CONSUMER_SECRET")
-        .expect("Missing environment variable: TWITTER_CONSUMER_SECRET");
-    let twitter_access_token = env::var("TWITTER_ACCESS_TOKEN")
-        .expect("Missing environment variable: TWITTER_ACCESS_TOKEN");
-    let twitter_access_token_secret = env::var("TWITTER_ACCESS_TOKEN_SECRET")
-        .expect("Missing environment variable: TWITTER_ACCESS_TOKEN_SECRET");
-    
-    let token = oauth::Token::from_parts(
-        twitter_consumer_key, 
-        twitter_consumer_secret,
-        twitter_access_token,
-        twitter_access_token_secret);
-
-    let conn = establish_connection();
-    let tracks = database::get_tracks(&conn);
-    let track = tracks.get(0).unwrap(); // Get rid of this unwrap
-
-    let client = Client::new();
-    let request = Tweet { status: track.url.clone() };
-    let auth_header = oauth::post(POST_TWEET_URL, &request, &token, oauth::HmacSha1);
-
-    let mut params = HashMap::new();
-    params.insert("status", track.url.clone());
-    let response = client.post(POST_TWEET_URL)
-        .header(header::AUTHORIZATION, auth_header)
-        .form(&params)
-        .send()
-        .unwrap();
-
-    if response.status().is_success() {
-        log::info!("Successfully tweeted song: {}", track.name);
-    } else {
-        log::error!("Failed to tweet song: {}", track.name);
+                for id in playlist_ids.iter() {
+                    let tracks = spotify::get_tracks(id, &access_token);
+                    // TODO: Make this an upsert
+                    for track in tracks {
+                        insert_track(&conn, &track.name(), &track.url());
+                    }
+                }
+            }
+        },
     }
 }

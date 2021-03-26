@@ -596,6 +596,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "exitcode"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de853764b47027c2e862a995c34978ffa63c1501f2e15f987ba11bd4f9bba193"
+
+[[package]]
 name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1877,6 +1883,7 @@ dependencies = [
  "base64 0.13.0",
  "csrf",
  "dirs",
+ "exitcode",
  "form_urlencoded",
  "hmac 0.10.1",
  "lazy_static",
