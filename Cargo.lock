@@ -1155,10 +1155,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "noiisseur"
+name = "noi"
 version = "0.1.0"
 dependencies = [
  "database",
+ "dotenv",
  "env_logger",
  "log 0.4.11",
  "oauth1-request",
