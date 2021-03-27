@@ -1,0 +1,7 @@
+sqlite3 database.db "INSERT INTO playlists (name, spotify_id) VALUES ('Coffee in the Morning', '2c5gRvQIaoMKouEo6OiTuu');"
+sqlite3 database.db "INSERT INTO playlists (name, spotify_id) VALUES ('Sent To You With Love', '2TycG938H80pPBzICl6puP');"
+sqlite3 database.db "INSERT INTO playlists (name, spotify_id) VALUES ('SZN21', '1w1A3JJdtgafmO6IY7KwZu');"
+sqlite3 database.db "INSERT INTO playlists (name, spotify_id) VALUES ('SZN20', '3gkUkvtdfQ6s1p8N3dTR9B');"
+sqlite3 database.db "INSERT INTO playlists (name, spotify_id) VALUES ('SZN19', '2zWEfyf0OMwp39Xds6rYjY');"
+sqlite3 database.db "INSERT INTO playlists (name, spotify_id) VALUES ('SZN18', '4eGeFRom9u43A04le8hCAK');"
+sqlite3 database.db "INSERT INTO playlists (name, spotify_id) VALUES ('Bang Your Line', '7kNphr0fgjihoAnfk0mK0K');"
