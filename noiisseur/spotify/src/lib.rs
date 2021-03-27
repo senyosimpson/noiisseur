@@ -55,15 +55,6 @@ lazy_static! {
     };
 }
 
-// IDs of the relevant Spotify playlists
-pub const COFFEE_IN_THE_MORNING: &str = "2c5gRvQIaoMKouEo6OiTuu";
-pub const SENT_TO_YOU_WITH_LOVE: &str = "2TycG938H80pPBzICl6puP";
-pub const SZN21: &str = "1w1A3JJdtgafmO6IY7KwZu";
-pub const SZN20: &str = "3gkUkvtdfQ6s1p8N3dTR9B";
-pub const SZN19: &str = "2zWEfyf0OMwp39Xds6rYjY";
-pub const SZN18: &str = "4eGeFRom9u43A04le8hCAK";
-pub const BANG_YOUR_LINE: &str = "7kNphr0fgjihoAnfk0mK0K";
-
 #[derive(Deserialize)]
 struct ExternalUrl {
     #[serde(rename = "spotify")]
@@ -72,6 +63,8 @@ struct ExternalUrl {
 
 #[derive(Deserialize)]
 pub struct SpotifyTrackInner {
+    #[serde(rename = "id")]
+    pub spotify_id: String,
     pub name: String,
     #[serde(rename = "external_urls")]
     url: ExternalUrl,
@@ -83,6 +76,10 @@ pub struct SpotifyTrack {
 }
 
 impl SpotifyTrack {
+    pub fn spotify_id(&self) -> String {
+        self.track.spotify_id.clone()
+    }
+
     pub fn name(&self) -> String {
         self.track.name.clone()
     }
@@ -164,7 +161,7 @@ pub fn refresh_access_token() -> String {
 pub fn get_tracks(playlist_id: &str, access_token: &str) -> Vec<SpotifyTrack> {
     let mut tracks_url = format!(
         "https://api.spotify.com/v1/playlists/{playlist_id}/\
-        tracks?fields=next,items(track(name,external_urls))",
+        tracks?fields=next,items(track(id,name,external_urls))",
         playlist_id = playlist_id
     );
 

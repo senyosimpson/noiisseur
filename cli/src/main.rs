@@ -7,7 +7,7 @@ use reqwest::{blocking::Client, header};
 
 use database::{
     self, establish_connection, get_playlists, insert_playlist, insert_playlist_offset,
-    insert_track,
+    insert_track, update_playlist_offset
 };
 use spotify::{self, authenticate, refresh_access_token};
 
@@ -44,7 +44,7 @@ enum PlaylistCmd {
 #[derive(Debug, StructOpt)]
 struct PlaylistInfo {
     name: String,
-    spotify_id: String
+    spotify_id: String,
 }
 
 fn main() {
@@ -111,13 +111,21 @@ fn main() {
                 // Fetch playlists from database
                 let playlists = get_playlists(&conn);
 
-                // for playlist in playlists.iter() {
-                //     let tracks = spotify::get_tracks(playlist.id, &access_token);
-                //     // TODO: Make this an upsert
-                //     for track in tracks {
-                //         insert_track(&conn, &track.name(), &track.url());
-                //     }
-                // }
+                for playlist in playlists.iter() {
+                    let tracks = spotify::get_tracks(&playlist.spotify_id, &access_token);
+                    for track in tracks.iter() {
+                        insert_track(
+                            &conn,
+                            &track.spotify_id(),
+                            playlist.id,
+                            &track.name(),
+                            &track.url(),
+                        );
+                    }
+
+                    let offset= tracks.len() as i32;
+                    update_playlist_offset(&conn, playlist.id, offset);
+                }
             }
         },
     }

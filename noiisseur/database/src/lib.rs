@@ -65,7 +65,7 @@ pub fn insert_playlist<'a>(conn: &SqliteConnection, name: &'a str, spotify_id: &
         .limit(1)
         .load::<i32>(conn)
         .unwrap()[0];
-    
+
     playlist_id
 }
 
@@ -83,4 +83,12 @@ pub fn insert_playlist_offset(conn: &SqliteConnection, offset: i32, playlist_id:
         .values(&offset)
         .execute(conn)
         .expect("Error inserting playlist offset into database");
+}
+
+pub fn update_playlist_offset(conn: &SqliteConnection, playlist_id: i32, offset_val: i32) {
+    use crate::schema::playlist_offset::columns::{id, offset};
+    diesel::update(playlist_offset::table.filter(id.eq(playlist_id)))
+        .set(offset.eq(offset_val))
+        .execute(conn)
+        .unwrap();
 }

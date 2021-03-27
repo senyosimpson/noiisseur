@@ -22,8 +22,8 @@ pub struct NewTrack<'a> {
 #[derive(Queryable, PartialEq)]
 pub struct Playlist {
     pub id: i32,
-    pub name: String,
     pub spotify_id: String,
+    pub name: String,
 }
 
 #[derive(Insertable)]
