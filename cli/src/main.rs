@@ -5,11 +5,11 @@ use structopt::StructOpt;
 
 use reqwest::{blocking::Client, header};
 
-use database::{self, establish_connection, insert_track};
-use spotify::{
-    self, authenticate, refresh_access_token, BANG_YOUR_LINE, COFFEE_IN_THE_MORNING,
-    SENT_TO_YOU_WITH_LOVE, SZN18, SZN19, SZN20, SZN21,
+use database::{
+    self, establish_connection, get_playlists, insert_playlist, insert_playlist_offset,
+    insert_track,
 };
+use spotify::{self, authenticate, refresh_access_token};
 
 const POST_TWEET_URL: &str = "https://api.twitter.com/1.1/statuses/update.json";
 
@@ -25,6 +25,8 @@ enum Command {
     Auth,
     /// All commands related to records
     Records(RecordCmd),
+    /// All commands related to playlists
+    Playlist(PlaylistCmd),
 }
 
 #[derive(Debug, StructOpt)]
@@ -33,11 +35,32 @@ enum RecordCmd {
     Update,
 }
 
+#[derive(Debug, StructOpt)]
+enum PlaylistCmd {
+    Add(PlaylistInfo),
+    Remove,
+}
+
+#[derive(Debug, StructOpt)]
+struct PlaylistInfo {
+    name: String,
+    spotify_id: String
+}
+
 fn main() {
     dotenv().ok();
 
+    let conn = establish_connection();
     match Command::from_args() {
         Command::Auth => authenticate(),
+        Command::Playlist(playlist_cmd) => match playlist_cmd {
+            PlaylistCmd::Add(PlaylistInfo { name, spotify_id }) => {
+                let playlist_id = insert_playlist(&conn, &name, &spotify_id);
+                insert_playlist_offset(&conn, 0, playlist_id);
+                println!("Added playlist {} with id {}", name, spotify_id)
+            }
+            PlaylistCmd::Remove => {}
+        },
         Command::Records(record_cmd) => match record_cmd {
             RecordCmd::Post => {
                 let twitter_consumer_key = env::var("TWITTER_CONSUMER_KEY")
@@ -85,23 +108,16 @@ fn main() {
             RecordCmd::Update => {
                 let access_token = refresh_access_token();
                 let conn = establish_connection();
-                let playlist_ids = [
-                    COFFEE_IN_THE_MORNING,
-                    SENT_TO_YOU_WITH_LOVE,
-                    BANG_YOUR_LINE,
-                    SZN21,
-                    SZN20,
-                    SZN19,
-                    SZN18,
-                ];
+                // Fetch playlists from database
+                let playlists = get_playlists(&conn);
 
-                for id in playlist_ids.iter() {
-                    let tracks = spotify::get_tracks(id, &access_token);
-                    // TODO: Make this an upsert
-                    for track in tracks {
-                        insert_track(&conn, &track.name(), &track.url());
-                    }
-                }
+                // for playlist in playlists.iter() {
+                //     let tracks = spotify::get_tracks(playlist.id, &access_token);
+                //     // TODO: Make this an upsert
+                //     for track in tracks {
+                //         insert_track(&conn, &track.name(), &track.url());
+                //     }
+                // }
             }
         },
     }

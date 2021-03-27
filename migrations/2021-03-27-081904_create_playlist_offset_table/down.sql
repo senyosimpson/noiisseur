@@ -1,2 +1,2 @@
 -- This file should undo anything in `up.sql`
-DROP TABLE playlist_offsets
+DROP TABLE playlist_offset
