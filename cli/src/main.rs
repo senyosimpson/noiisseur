@@ -6,8 +6,8 @@ use structopt::StructOpt;
 use reqwest::{blocking::Client, header};
 
 use database::{
-    self, establish_connection, get_playlists, insert_playlist, insert_playlist_offset,
-    insert_track, update_playlist_offset
+    self, establish_connection, get_playlist_offset, get_playlists, insert_playlist,
+    insert_playlist_offset, insert_track, update_playlist_offset,
 };
 use spotify::{self, authenticate, refresh_access_token};
 
@@ -56,7 +56,7 @@ fn main() {
         Command::Playlist(playlist_cmd) => match playlist_cmd {
             PlaylistCmd::Add(PlaylistInfo { name, spotify_id }) => {
                 let playlist_id = insert_playlist(&conn, &name, &spotify_id);
-                insert_playlist_offset(&conn, 0, playlist_id);
+                insert_playlist_offset(&conn, playlist_id, 0);
                 println!("Added playlist {} with id {}", name, spotify_id)
             }
             PlaylistCmd::Remove => {}
@@ -108,11 +108,12 @@ fn main() {
             RecordCmd::Update => {
                 let access_token = refresh_access_token();
                 let conn = establish_connection();
-                // Fetch playlists from database
+                
+                let offset = get_playlist_offset(&conn, playlist_id);
                 let playlists = get_playlists(&conn);
 
                 for playlist in playlists.iter() {
-                    let tracks = spotify::get_tracks(&playlist.spotify_id, &access_token);
+                    let tracks = spotify::get_tracks(&access_token, playlist.spotify_id, offset);
                     for track in tracks.iter() {
                         insert_track(
                             &conn,
@@ -123,8 +124,8 @@ fn main() {
                         );
                     }
 
-                    let offset= tracks.len() as i32;
-                    update_playlist_offset(&conn, playlist.id, offset);
+                    let new_offset = offset + tracks.len() as i32;
+                    update_playlist_offset(&conn, playlist.id, new_offset);
                 }
             }
         },

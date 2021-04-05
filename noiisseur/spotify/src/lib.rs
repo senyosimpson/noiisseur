@@ -72,7 +72,7 @@ pub struct SpotifyTrackInner {
 #[derive(Deserialize)]
 pub struct SpotifyTrack {
     #[serde(rename = "track")]
-    pub track: SpotifyTrackInner
+    pub track: SpotifyTrackInner,
 }
 
 impl SpotifyTrack {
@@ -158,11 +158,13 @@ pub fn refresh_access_token() -> String {
     refresh_auth.access_token.to_string()
 }
 
-pub fn get_tracks(playlist_id: &str, access_token: &str) -> Vec<SpotifyTrack> {
+pub fn get_tracks(access_token: &str, playlist_id: &str, offset: i32) -> Vec<SpotifyTrack> {
     let mut tracks_url = format!(
         "https://api.spotify.com/v1/playlists/{playlist_id}/\
-        tracks?fields=next,items(track(id,name,external_urls))",
-        playlist_id = playlist_id
+        tracks?fields=next,items(track(id,name,external_urls))\
+        &offset={offset}",
+        playlist_id = playlist_id,
+        offset = offset
     );
 
     let client = Client::new();
@@ -205,7 +207,7 @@ pub fn authenticate() {
             .append_pair("state", &STATE)
             .append_pair("show_dialog", "false")
             .finish();
-            
+
         let url = format!(
             "{auth_url}?{params}",
             auth_url = SPOTIFY_AUTH_URL,

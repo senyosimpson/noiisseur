@@ -9,7 +9,7 @@ extern crate diesel;
 use diesel::{prelude::*, sqlite::SqliteConnection};
 use dotenv::dotenv;
 
-use models::{NewPlaylist, NewPlaylistOffset, NewTrack, Playlist, Track};
+use models::{NewPlaylist, NewPlaylistOffset, NewTrack, Playlist, Track, PlaylistOffset};
 
 use schema::{playlist_offset, playlists, tracks};
 
@@ -73,7 +73,7 @@ pub fn get_playlists(conn: &SqliteConnection) -> Vec<Playlist> {
     playlists::table.load::<Playlist>(conn).unwrap()
 }
 
-pub fn insert_playlist_offset(conn: &SqliteConnection, offset: i32, playlist_id: i32) {
+pub fn insert_playlist_offset(conn: &SqliteConnection, playlist_id: i32, offset: i32) {
     let offset = NewPlaylistOffset {
         offset,
         playlist_id,
@@ -91,4 +91,15 @@ pub fn update_playlist_offset(conn: &SqliteConnection, playlist_id: i32, offset_
         .set(offset.eq(offset_val))
         .execute(conn)
         .unwrap();
+}
+
+pub fn get_playlist_offset(conn: &SqliteConnection, playlist_id_val: i32) -> i32 {
+    use crate::schema::playlist_offset::columns::{offset, playlist_id};
+    let offset = playlist_offset::table
+        .filter(playlist_id.eq(playlist_id_val))
+        .select(offset)
+        .load::<i32>(conn)
+        .unwrap();
+
+    offset.offset
 }

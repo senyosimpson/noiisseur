@@ -33,6 +33,13 @@ pub struct NewPlaylist<'a> {
     pub spotify_id: &'a str,
 }
 
+#[derive(Queryable, PartialEq)]
+pub struct PlaylistOffset {
+    pub id: i32,
+    pub offset: i32,
+    pub playlist_id: i32
+}
+
 #[derive(Insertable)]
 #[table_name = "playlist_offset"]
 pub struct NewPlaylistOffset {
