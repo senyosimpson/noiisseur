@@ -7,7 +7,7 @@ use structopt::StructOpt;
 
 use database::{
     self, establish_connection, get_playlist_offset, get_playlists, insert_playlist,
-    insert_playlist_offset, insert_track, update_playlist_offset,
+    insert_playlist_offset, insert_track, update_playlist_offset, mark_track_as_posted
 };
 use spotify::{self, authenticate, refresh_access_token};
 
@@ -84,7 +84,7 @@ fn main() {
                 let conn = establish_connection();
                 // let ref ?
                 let tracks = database::get_tracks(&conn);
-                let track = tracks.get(0).unwrap(); // Get rid of this unwrap
+                let track = tracks.get(1).unwrap(); // Get rid of this unwrap
 
                 let client = Client::new();
                 let request = Tweet {
@@ -102,9 +102,11 @@ fn main() {
                     .unwrap();
 
                 if response.status().is_success() {
+                    mark_track_as_posted(&conn, track);
                     println!("Successfully tweeted song: {}", track.name);
                 } else {
                     println!("Failed to tweet song: {}", track.name);
+                    println!("Got response: {}", response.text().unwrap())
                 }
             }
             TrackCmd::Update => {

@@ -21,6 +21,7 @@ table! {
         playlist_id -> Integer,
         name -> Text,
         url -> Text,
+        posted -> Integer,
     }
 }
 

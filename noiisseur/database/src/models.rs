@@ -1,13 +1,14 @@
 use crate::schema::{playlist_offset, playlists, tracks};
 use diesel::{Insertable, Queryable};
 
-#[derive(Queryable, PartialEq)]
+#[derive(Queryable, Identifiable, PartialEq)]
 pub struct Track {
     pub id: i32,
     pub spotify_id: String,
     pub playlist_id: i32,
     pub name: String,
     pub url: String,
+    pub posted: i32,
 }
 
 #[derive(Insertable)]
@@ -37,7 +38,7 @@ pub struct NewPlaylist<'a> {
 pub struct PlaylistOffset {
     pub id: i32,
     pub offset: i32,
-    pub playlist_id: i32
+    pub playlist_id: i32,
 }
 
 #[derive(Insertable)]
