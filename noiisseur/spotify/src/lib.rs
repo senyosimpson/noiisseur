@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use base64;
 use csrf::{CsrfProtection, HmacCsrfProtection};
 use dirs::home_dir;
-use exitcode;
 use form_urlencoded;
 use hmac::{Hmac, Mac, NewMac};
 use ini::Ini;
@@ -18,6 +17,7 @@ use serde::Deserialize;
 use serde_json;
 use sha2::Sha256;
 use webbrowser;
+use rocket::response::content::Html;
 
 // Constants
 const SPOTIFY_BASE_URL: &str = "https://api.spotify.com/v1";
@@ -26,6 +26,7 @@ const SPOTIFY_TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 const RESPONSE_TYPE: &str = "code";
 const SCOPE: &str = "playlist-read-private";
 const REDIRECT_URI: &str = "http://localhost:8000/auth";
+const SUCCESS_PAGE: &str = include_str!("../../../html/success.html");
 lazy_static! {
     static ref SPOTIFY_CLIENT_ID: String =
         env::var("SPOTIFY_CLIENT_ID").expect("Missing env variable: SPOTIFY_CLIENT_ID");
@@ -55,13 +56,13 @@ lazy_static! {
     };
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct ExternalUrl {
     #[serde(rename = "spotify")]
     url: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SpotifyTrackInner {
     #[serde(rename = "id")]
     pub spotify_id: String,
@@ -69,25 +70,49 @@ pub struct SpotifyTrackInner {
     #[serde(rename = "external_urls")]
     url: ExternalUrl,
 }
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SpotifyTrack {
     #[serde(rename = "track")]
-    pub track: SpotifyTrackInner,
+    pub track: Option<SpotifyTrackInner>,
 }
 
 impl SpotifyTrack {
-    pub fn spotify_id(&self) -> String {
-        self.track.spotify_id.clone()
+    pub fn is_null(&self) -> bool {
+        match self.track {
+            Some(_) => return false,
+            None => return true
+        };
     }
 
-    pub fn name(&self) -> String {
-        self.track.name.clone()
+    pub fn spotify_id(&self) -> Option<String> {
+        if self.is_null() {
+            return None;
+        };
+
+        let ref track = self.track.as_ref().unwrap();
+        let spotify_id = track.spotify_id.clone();
+        Some(spotify_id)
     }
 
-    pub fn url(&self) -> String {
+    pub fn name(&self) -> Option<String> {
+        if self.is_null() {
+            return None;
+        };
+
+        let track = self.track.as_ref().unwrap();
+        let name = track.name.clone();
+        Some(name)
+    }
+
+    pub fn url(&self) -> Option<String> {
+        if self.is_null() {
+            return None;
+        };
         // Need to figure out how to restructure my coe
         // to remove this
-        self.track.url.url.clone()
+        let track = self.track.as_ref().unwrap();
+        let url = track.url.url.clone();
+        Some(url)
     }
 }
 
@@ -221,7 +246,7 @@ pub fn authenticate() {
 }
 
 #[get("/auth?<code>&<state>")]
-fn _authenticate(code: String, state: String) {
+fn _authenticate(code: String, state: String) -> Html<&'static str> {
     if state == *STATE {
         let client_id = env::var("SPOTIFY_CLIENT_ID").unwrap();
         let client_secret = env::var("SPOTIFY_CLIENT_SECRET").unwrap();
@@ -263,5 +288,5 @@ fn _authenticate(code: String, state: String) {
         println!("Successfully authenticated!");
     }
 
-    std::process::exit(exitcode::OK)
+    Html(SUCCESS_PAGE)
 }

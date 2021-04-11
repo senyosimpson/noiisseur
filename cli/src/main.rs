@@ -1,9 +1,9 @@
+use diesel::result::{DatabaseErrorKind, Error};
 use dotenv::dotenv;
 use oauth;
+use reqwest::{blocking::Client, header};
 use std::{collections::HashMap, env};
 use structopt::StructOpt;
-
-use reqwest::{blocking::Client, header};
 
 use database::{
     self, establish_connection, get_playlist_offset, get_playlists, insert_playlist,
@@ -24,13 +24,13 @@ enum Command {
     /// Authenticate application
     Auth,
     /// All commands related to records
-    Records(RecordCmd),
+    Tracks(TrackCmd),
     /// All commands related to playlists
     Playlist(PlaylistCmd),
 }
 
 #[derive(Debug, StructOpt)]
-enum RecordCmd {
+enum TrackCmd {
     Post,
     Update,
 }
@@ -52,7 +52,9 @@ fn main() {
 
     let conn = establish_connection();
     match Command::from_args() {
-        Command::Auth => authenticate(),
+        Command::Auth => {
+            authenticate();
+        }
         Command::Playlist(playlist_cmd) => match playlist_cmd {
             PlaylistCmd::Add(PlaylistInfo { name, spotify_id }) => {
                 let playlist_id = insert_playlist(&conn, &name, &spotify_id);
@@ -61,8 +63,8 @@ fn main() {
             }
             PlaylistCmd::Remove => {}
         },
-        Command::Records(record_cmd) => match record_cmd {
-            RecordCmd::Post => {
+        Command::Tracks(track_cmd) => match track_cmd {
+            TrackCmd::Post => {
                 let twitter_consumer_key = env::var("TWITTER_CONSUMER_KEY")
                     .expect("Missing environment variable: TWITTER_CONSUMER_KEY");
                 let twitter_consumer_secret = env::var("TWITTER_CONSUMER_SECRET")
@@ -105,23 +107,43 @@ fn main() {
                     println!("Failed to tweet song: {}", track.name);
                 }
             }
-            RecordCmd::Update => {
+            TrackCmd::Update => {
                 let access_token = refresh_access_token();
                 let conn = establish_connection();
-                
-                let offset = get_playlist_offset(&conn, playlist_id);
-                let playlists = get_playlists(&conn);
 
-                for playlist in playlists.iter() {
-                    let tracks = spotify::get_tracks(&access_token, playlist.spotify_id, offset);
-                    for track in tracks.iter() {
-                        insert_track(
+                let playlists = get_playlists(&conn);
+                for (idx, playlist) in playlists.iter().enumerate() {
+                    println!(
+                        "Processing playlist: {} - [{}]/[{}]",
+                        playlist.name,
+                        idx + 1,
+                        playlists.len()
+                    );
+                    let offset = get_playlist_offset(&conn, playlist.id);
+                    let tracks = spotify::get_tracks(&access_token, &playlist.spotify_id, offset);
+                    for (idx, track) in tracks.iter().enumerate() {
+                        println!("Inserting track [{}]/[{}]", idx, tracks.len());
+                        if track.is_null() {
+                            continue;
+                        };
+                        let result = insert_track(
                             &conn,
-                            &track.spotify_id(),
+                            &track.spotify_id().unwrap(),
                             playlist.id,
-                            &track.name(),
-                            &track.url(),
+                            &track.name().unwrap(),
+                            &track.url().unwrap(),
                         );
+
+                        match result {
+                            Ok(_) => continue,
+                            // It's possible for the same song to exist in multiple playlists. Currently,
+                            // we don't actually want to store duplicates in the `tracks` table. Therefore
+                            // we just ignore these cases. They're not common so this solution is fine
+                            Err(Error::DatabaseError(DatabaseErrorKind::UniqueViolation, _)) => {
+                                continue
+                            }
+                            Err(e) => panic!("Error {} occurred", e),
+                        }
                     }
 
                     let new_offset = offset + tracks.len() as i32;

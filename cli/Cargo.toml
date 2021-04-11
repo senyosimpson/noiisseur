@@ -13,6 +13,7 @@ log = "0.4.11"
 env_logger = "0.7.1"
 oauth = { version = "0.4", package = "oauth1-request" }
 reqwest = { version = "0.10.10", features = ["blocking", "json"] }
+diesel = { version = "1.4.5", features = ["sqlite"] }
 
 database = { path = "../noiisseur/database" }
 spotify = { path = "../noiisseur/spotify" }

@@ -28,6 +28,13 @@ sqlite> .database        # Check the database has been created
 sqlite> .q               # quit
 ```
 
+We have to enable foreign key constraints in order for some of our tables to work
+
+```
+sqlite3
+sqlite> PRAGMA foreign_keys = ON;
+```
+
 The ORM requires the diesel cli tool to be installed. We can install it using Cargo.
 
 ```
@@ -54,16 +61,28 @@ Perform authentication
 noi auth
 ```
 
-Update databases with new records (songs) in playlists
+Update databases with new tracks (songs) in playlists
 
 ```
-noi records update
+noi tracks update
 ```
 
 Post a record to Twitter
 
 ```
-noi records post
+noi tracks post
+```
+
+Adds a new playlist to fetch music from
+
+```
+noi playlist add <name> <playlist id>
+```
+
+Remove a playlist from the list
+
+```
+noi playlist remove <playlist id>
 ```
 
 [diesel]: https://diesel.rs

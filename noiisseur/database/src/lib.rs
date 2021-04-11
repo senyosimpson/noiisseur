@@ -1,15 +1,15 @@
 mod models;
 mod schema;
 
-use std::{env, iter::Peekable};
+use std::env;
 
 #[macro_use]
 extern crate diesel;
 
-use diesel::{prelude::*, sqlite::SqliteConnection};
+use diesel::{prelude::*, sqlite::SqliteConnection, result::QueryResult};
 use dotenv::dotenv;
 
-use models::{NewPlaylist, NewPlaylistOffset, NewTrack, Playlist, Track, PlaylistOffset};
+use models::{NewPlaylist, NewPlaylistOffset, NewTrack, Playlist, Track};
 
 use schema::{playlist_offset, playlists, tracks};
 
@@ -25,7 +25,7 @@ pub fn insert_track<'a>(
     playlist_id: i32,
     name: &'a str,
     url: &'a str,
-) {
+) -> QueryResult<usize> {
     let track = NewTrack {
         spotify_id,
         playlist_id,
@@ -36,7 +36,6 @@ pub fn insert_track<'a>(
     diesel::insert_into(tracks::table)
         .values(&track)
         .execute(conn)
-        .expect("Error inserting track into database");
 }
 
 pub fn delete_track(conn: &SqliteConnection, id: i32) {
@@ -95,11 +94,11 @@ pub fn update_playlist_offset(conn: &SqliteConnection, playlist_id: i32, offset_
 
 pub fn get_playlist_offset(conn: &SqliteConnection, playlist_id_val: i32) -> i32 {
     use crate::schema::playlist_offset::columns::{offset, playlist_id};
-    let offset = playlist_offset::table
+    let offset_val = playlist_offset::table
         .filter(playlist_id.eq(playlist_id_val))
         .select(offset)
-        .load::<i32>(conn)
+        .first::<i32>(conn)
         .unwrap();
-
-    offset.offset
+    
+    offset_val
 }
