@@ -1,13 +1,14 @@
 use diesel::result::{DatabaseErrorKind, Error};
 use dotenv::dotenv;
 use oauth;
+use rand::Rng;
 use reqwest::{blocking::Client, header};
 use std::{collections::HashMap, env};
 use structopt::StructOpt;
 
 use database::{
     self, establish_connection, get_playlist_offset, get_playlists, insert_playlist,
-    insert_playlist_offset, insert_track, update_playlist_offset, mark_track_as_posted
+    insert_playlist_offset, insert_track, mark_track_as_posted, update_playlist_offset,
 };
 use spotify::{self, authenticate, refresh_access_token};
 
@@ -84,7 +85,8 @@ fn main() {
                 let conn = establish_connection();
                 // let ref ?
                 let tracks = database::get_tracks(&conn);
-                let track = tracks.get(1).unwrap(); // Get rid of this unwrap
+                let idx: usize = rand::thread_rng().gen_range(0..tracks.len());
+                let track = tracks.get(idx).unwrap(); // Get rid of this unwrap
 
                 let client = Client::new();
                 let request = Tweet {
