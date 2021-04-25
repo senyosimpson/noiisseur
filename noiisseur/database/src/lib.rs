@@ -1,22 +1,22 @@
 mod models;
 mod schema;
 
-use std::env;
-
 #[macro_use]
 extern crate diesel;
-
 use diesel::{prelude::*, result::QueryResult, sqlite::SqliteConnection};
+
+use anyhow::Result;
 use dotenv::dotenv;
+use std::env;
 
 use models::{NewPlaylist, NewPlaylistOffset, NewTrack, Playlist, Track};
-
 use schema::{playlist_offset, playlists, tracks};
 
-pub fn establish_connection() -> SqliteConnection {
-    dotenv().ok();
-    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    SqliteConnection::establish(&db_url).expect(&format!("Error connecting to {}", db_url))
+pub fn establish_connection() -> Result<SqliteConnection> {
+    dotenv()?;
+    let db_url = env::var("DATABASE_URL")?;
+    let conn = SqliteConnection::establish(&db_url)?;
+    Ok(conn)
 }
 
 pub fn insert_track<'a>(
@@ -54,7 +54,10 @@ pub fn mark_track_as_posted(conn: &SqliteConnection, track: &Track) {
 
 pub fn get_tracks(conn: &SqliteConnection) -> Vec<Track> {
     use crate::schema::tracks::columns::posted;
-    tracks::table.filter(posted.eq(0)).load::<Track>(conn).unwrap()
+    tracks::table
+        .filter(posted.eq(0))
+        .load::<Track>(conn)
+        .unwrap()
 }
 
 pub fn insert_playlist<'a>(conn: &SqliteConnection, name: &'a str, spotify_id: &'a str) -> i32 {

@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use diesel::result::{DatabaseErrorKind, Error};
 use dotenv::dotenv;
 use oauth;
@@ -32,7 +33,9 @@ enum Command {
 
 #[derive(Debug, StructOpt)]
 enum TrackCmd {
+    // Posts the song to Twitter
     Post,
+    // Updates the songs in the database
     Update,
 }
 
@@ -48,21 +51,23 @@ struct PlaylistInfo {
     spotify_id: String,
 }
 
-fn main() {
+fn main() -> Result<()> {
     dotenv().ok();
 
-    let conn = establish_connection();
+    let conn = establish_connection().with_context(|| "Could not establish connection!")?;
     match Command::from_args() {
         Command::Auth => {
-            authenticate();
+            authenticate()?;
+            Ok(())
         }
         Command::Playlist(playlist_cmd) => match playlist_cmd {
             PlaylistCmd::Add(PlaylistInfo { name, spotify_id }) => {
                 let playlist_id = insert_playlist(&conn, &name, &spotify_id);
                 insert_playlist_offset(&conn, playlist_id, 0);
-                println!("Added playlist {} with id {}", name, spotify_id)
+                println!("Added playlist {} with id {}", name, spotify_id);
+                Ok(())
             }
-            PlaylistCmd::Remove => {}
+            PlaylistCmd::Remove => Ok(()),
         },
         Command::Tracks(track_cmd) => match track_cmd {
             TrackCmd::Post => {
@@ -82,38 +87,42 @@ fn main() {
                     twitter_access_token_secret,
                 );
 
-                let conn = establish_connection();
-                // let ref ?
+                let conn =
+                    establish_connection().with_context(|| "Could not establish connection!")?;
                 let tracks = database::get_tracks(&conn);
                 let idx: usize = rand::thread_rng().gen_range(0..tracks.len());
-                let track = tracks.get(idx).unwrap(); // Get rid of this unwrap
+                let track = tracks.get(idx).unwrap(); // This should never fail so can unwrap
 
                 let client = Client::new();
                 let request = Tweet {
                     status: track.url.clone(),
                 };
+                // Creates the authentication header
                 let auth_header = oauth::post(POST_TWEET_URL, &request, &token, oauth::HmacSha1);
 
+                // Tweet the song
                 let mut params = HashMap::new();
                 params.insert("status", track.url.clone());
                 let response = client
                     .post(POST_TWEET_URL)
                     .header(header::AUTHORIZATION, auth_header)
                     .form(&params)
-                    .send()
-                    .unwrap();
+                    .send()?;
 
                 if response.status().is_success() {
                     mark_track_as_posted(&conn, track);
                     println!("Successfully tweeted song: {}", track.name);
+                    Ok(())
                 } else {
                     println!("Failed to tweet song: {}", track.name);
-                    println!("Got response: {}", response.text().unwrap())
+                    println!("Got response: {}", response.text().unwrap());
+                    std::process::exit(1)
                 }
             }
             TrackCmd::Update => {
-                let access_token = refresh_access_token();
-                let conn = establish_connection();
+                let access_token = refresh_access_token()?;
+                let conn =
+                    establish_connection().with_context(|| "Could not establish connection!")?;
 
                 let playlists = get_playlists(&conn);
                 for (idx, playlist) in playlists.iter().enumerate() {
@@ -124,7 +133,9 @@ fn main() {
                         playlists.len()
                     );
                     let offset = get_playlist_offset(&conn, playlist.id);
-                    let tracks = spotify::get_tracks(&access_token, &playlist.spotify_id, offset);
+                    let tracks = spotify::get_tracks(&access_token, &playlist.spotify_id, offset)
+                        .with_context(|| "Unable to get fetch all tracks from Spotify")?;
+
                     for (idx, track) in tracks.iter().enumerate() {
                         println!("Inserting track [{}]/[{}]", idx, tracks.len());
                         if track.is_null() {
@@ -153,6 +164,7 @@ fn main() {
                     let new_offset = offset + tracks.len() as i32;
                     update_playlist_offset(&conn, playlist.id, new_offset);
                 }
+                Ok(())
             }
         },
     }

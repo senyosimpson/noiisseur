@@ -1,8 +1,10 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
-use std::env;
-use std::path::PathBuf;
+pub mod error;
 
+use std::{env, path::PathBuf};
+
+use anyhow::Result;
 use base64;
 use csrf::{CsrfProtection, HmacCsrfProtection};
 use dirs::home_dir;
@@ -12,12 +14,12 @@ use ini::Ini;
 use lazy_static::{__Deref, lazy_static};
 use reqwest::{blocking::Client, header};
 use ring::rand::{self, SecureRandom};
+use rocket::response::content::Html;
 use rocket::*;
 use serde::Deserialize;
 use serde_json;
 use sha2::Sha256;
 use webbrowser;
-use rocket::response::content::Html;
 
 // Constants
 const SPOTIFY_BASE_URL: &str = "https://api.spotify.com/v1";
@@ -80,7 +82,7 @@ impl SpotifyTrack {
     pub fn is_null(&self) -> bool {
         match self.track {
             Some(_) => return false,
-            None => return true
+            None => return true,
         };
     }
 
@@ -137,7 +139,7 @@ struct SpotifyRefreshAuth<'a> {
     access_token: &'a str,
 }
 
-pub fn refresh_access_token() -> String {
+pub fn refresh_access_token() -> Result<String> {
     let mut credentials = Ini::load_from_file(CREDENTIALS_FILE.deref()).unwrap();
     let refresh_token = credentials
         .get_from(Some("default"), "refresh_token")
@@ -168,22 +170,20 @@ pub fn refresh_access_token() -> String {
         .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
         .header(header::AUTHORIZATION, auth_credentials)
         .body(body)
-        .send()
-        .unwrap()
-        .text()
-        .unwrap();
+        .send()?
+        .text()?;
 
-    let refresh_auth: SpotifyRefreshAuth = serde_json::from_str(&response).unwrap();
+    let refresh_auth: SpotifyRefreshAuth = serde_json::from_str(&response)?;
 
     credentials
         .with_section(Some("default"))
         .set("access_token", refresh_auth.access_token);
     credentials.write_to_file(CREDENTIALS_FILE.deref()).unwrap();
 
-    refresh_auth.access_token.to_string()
+    Ok(refresh_auth.access_token.to_string())
 }
 
-pub fn get_tracks(access_token: &str, playlist_id: &str, offset: i32) -> Vec<SpotifyTrack> {
+pub fn get_tracks(access_token: &str, playlist_id: &str, offset: i32) -> Result<Vec<SpotifyTrack>> {
     let mut tracks_url = format!(
         "https://api.spotify.com/v1/playlists/{playlist_id}/\
         tracks?fields=next,items(track(id,name,external_urls))\
@@ -201,13 +201,11 @@ pub fn get_tracks(access_token: &str, playlist_id: &str, offset: i32) -> Vec<Spo
             let response = client
                 .get(&tracks_url)
                 .bearer_auth(access_token)
-                .send()
-                .unwrap()
-                .text()
-                .unwrap();
+                .send()?
+                .text()?;
 
             // TODO: Improve error handling
-            let response: SpotifyTrackPage = serde_json::from_str(&response).unwrap();
+            let response: SpotifyTrackPage = serde_json::from_str(&response)?;
             response
         };
         tracks.append(&mut response.tracks);
@@ -218,11 +216,11 @@ pub fn get_tracks(access_token: &str, playlist_id: &str, offset: i32) -> Vec<Spo
         };
     }
 
-    tracks
+    Ok(tracks)
 }
 
-pub fn authenticate() {
-    let client_id = env::var("SPOTIFY_CLIENT_ID").unwrap();
+pub fn authenticate() -> Result<()> {
+    let client_id = env::var("SPOTIFY_CLIENT_ID")?;
     let url = {
         let params = form_urlencoded::Serializer::new(String::new())
             .append_pair("client_id", &client_id)
@@ -241,15 +239,16 @@ pub fn authenticate() {
         url
     };
 
-    webbrowser::open(&url).unwrap();
-    rocket::ignite().mount("/", routes![_authenticate]).launch();
+    webbrowser::open(&url)?;
+    let error = rocket::ignite().mount("/", routes![_authenticate]).launch();
+    Err(error.into())
 }
 
 #[get("/auth?<code>&<state>")]
-fn _authenticate(code: String, state: String) -> Html<&'static str> {
+fn _authenticate(code: String, state: String) -> Result<Html<&'static str>> {
     if state == *STATE {
-        let client_id = env::var("SPOTIFY_CLIENT_ID").unwrap();
-        let client_secret = env::var("SPOTIFY_CLIENT_SECRET").unwrap();
+        let client_id = env::var("SPOTIFY_CLIENT_ID")?;
+        let client_secret = env::var("SPOTIFY_CLIENT_SECRET")?;
 
         let encode = format!(
             "{client_id}:{client_secret}",
@@ -272,21 +271,21 @@ fn _authenticate(code: String, state: String) -> Html<&'static str> {
             .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
             .header(header::AUTHORIZATION, auth)
             .body(body)
-            .send()
-            .unwrap()
-            .text()
-            .unwrap();
+            .send()?
+            .text()?;
 
-        let access_auth: SpotifyAccessAuth = serde_json::from_str(&response).unwrap();
+        let access_auth: SpotifyAccessAuth = serde_json::from_str(&response)?;
 
         let mut conf = Ini::new();
         conf.with_section(Some("default"))
             .set("access_token", access_auth.access_token)
             .set("refresh_token", access_auth.refresh_token);
-        conf.write_to_file(CREDENTIALS_FILE.deref()).unwrap();
+        conf.write_to_file(CREDENTIALS_FILE.deref())?;
 
         println!("Successfully authenticated!");
+    } else {
+        return Err(error::Error::InvalidOAuthState.into());
     }
 
-    Html(SUCCESS_PAGE)
+    Ok(Html(SUCCESS_PAGE))
 }
