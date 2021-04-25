@@ -136,6 +136,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.40"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28b2cd92db5cbd74e8e5028f7e27dd7aa3090e89e4f2a197cc7c8dfb69c7063b"
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -464,6 +470,7 @@ checksum = "993a608597367c6377b258c25d7120740f00ed23a2252b729b1932dd7866f908"
 name = "database"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "diesel",
  "dotenv",
 ]
@@ -1171,6 +1178,7 @@ dependencies = [
 name = "noi"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "database",
  "diesel",
  "dotenv",
@@ -1929,6 +1937,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 name = "spotify"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.13.0",
  "csrf",
  "dirs",
@@ -1942,6 +1951,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.9.2",
+ "thiserror",
  "webbrowser",
 ]
 
@@ -2054,6 +2064,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
  "unicode-width",
+]
+
+[[package]]
+name = "thiserror"
+version = "1.0.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0f4a65597094d4483ddaed134f409b2cb7c1beccf25201a9f73c719254fa98e"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7765189610d8241a44529806d6fd1f2e0a08734313a35d5b3a556f92b381f3c0"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.8",
+ "syn 1.0.60",
 ]
 
 [[package]]

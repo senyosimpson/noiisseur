@@ -1,9 +1,12 @@
 # Noiisseur
 
-Noiisseur is a Twitter bot that tweets a new song daily from one of my playlists. It is linked to the
-Twitter account of the same name: [@noiisseur]
+Noiisseur is a Twitter bot that tweets songs from a collection of playlists. I use it to tweet a song
+daily from one of my playlists to a Twitter account of the same name: [@noiisseur].
 
-## Quick start
+## Status
+
+It works. The code is a bit rough and the ergonomics of the application are relatively poor in my opinion.
+Nonetheless, I'm leaving it as is. It was a fun small project!
 
 ## Guide
 
@@ -13,7 +16,7 @@ are discussed later in the guide.
 
 ### Setup
 
-Setting up Noisseur currently requires some ceremony. This will be improved in future versions of the
+Setting up Noiisseur currently requires some ceremony. This will be improved in future versions of the
 application. There are two components to the setup: the database and ORM layer and acquiring Twitter
 authentication tokens.
 
@@ -52,6 +55,19 @@ We're now ready to create our tables. We can run the migrations to do so
 ```
 diesel migration run
 ```
+
+#### Twitter authentication
+
+For Twitter authentication, you need the following:
+
+* Twitter consumer key
+* Twitter consumer secret
+* Twitter access token
+* Twitter access token secret
+
+These should all be set as environment variables in a `.env` file in the root directory.
+The names are as stated above but all in capital letters with spaces being replaced by underscores.
+For example: `Twitter consumer key -> TWITTER_CONSUMER_KEY`
 
 ## CLI API
 
